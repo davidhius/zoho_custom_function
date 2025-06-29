@@ -11,35 +11,18 @@ System autocreate 3 sub-tasks if succesfully created case type = ‘Tenancy Chan
 + Due-date và Priority (refer to section D)
 **/
 createAPI = "https://desk.zoho.eu/api/v1/tickets";
-orgId = XXXXXX;
+orgId = 20106978267;
 ticketInfo = zoho.desk.getRecordById(orgId,"tickets",ticketId);
+if(ticketInfo.get("relationshipType").equalsIgnoreCase("Child")) {
+	return;
+}
 cf = ticketInfo.get("cf");
 parent = {"id":ticketId};
-params = {
-  "entitySkills":ticketInfo.get("entitySkills"),
-  "subCategory":ticketInfo.get("subCategory"),
-  "cf":cf,
-  "productId":ticketInfo.get("productId"),
-  "contactId":ticketInfo.get("contactId"),
-  "dueDate":ticketInfo.get("dueDate"),
-  "departmentId":ticketInfo.get("departmentId"),
-  "channel":ticketInfo.get("channel"),
-  "description":ticketInfo.get("description"),
-  "language":ticketInfo.get("language"),
-  "priority":ticketInfo.get("priority"),
-  "classification":ticketInfo.get("classification"),
-  "assigneeId":ticketInfo.get("assigneeId"),
-  "teamId":ticketInfo.get("teamId"),
-  "phone":ticketInfo.get("phone"),
-  "category":ticketInfo.get("category"),
-  "email":ticketInfo.get("email"),
-  "status":ticketInfo.get("status"),
-  "parentTicket":parent
-};
+params = {"entitySkills":ticketInfo.get("entitySkills"),"subCategory":ticketInfo.get("subCategory"),"cf":cf,"productId":ticketInfo.get("productId"),"contactId":ticketInfo.get("contactId"),"dueDate":ticketInfo.get("dueDate"),"departmentId":ticketInfo.get("departmentId"),"channel":ticketInfo.get("channel"),"description":ticketInfo.get("description"),"language":ticketInfo.get("language"),"priority":ticketInfo.get("priority"),"classification":ticketInfo.get("classification"),"assigneeId":ticketInfo.get("assigneeId"),"teamId":ticketInfo.get("teamId"),"phone":ticketInfo.get("phone"),"category":ticketInfo.get("category"),"email":ticketInfo.get("email"),"status":ticketInfo.get("status"),"parentTicket":parent};
 /**
 * Sub-task #1 - Title: “Collect tenant application forms” 
 **/
-params.put("subject", "Collect tenant application forms");
+params.put("subject","Collect tenant application forms");
 info "params ::: " + params;
 response = invokeurl
 [
@@ -48,13 +31,13 @@ response = invokeurl
 	parameters:params.toString()
 	headers:{"Content-Type":"application/json","featureFlags":"lookUp"}
 	detailed:true
-	connection:"connection_name"
+	connection:"desk_oauth"
 ];
 info response;
 /**
 * Sub-task #2 - Title: “Review and provide deed of assignment”
 **/
-params.put("subject", "Review and provide deed of assignment");
+params.put("subject","Review and provide deed of assignment");
 response = invokeurl
 [
 	url :createAPI
@@ -62,13 +45,13 @@ response = invokeurl
 	parameters:params.toString()
 	headers:{"Content-Type":"application/json","featureFlags":"lookUp"}
 	detailed:true
-	connection:"connection_name"
+	connection:"desk_oauth"
 ];
 info response;
 /**
 * Sub-task #3 - Title: “Update tenancy information”
 **/
-params.put("subject", "Update tenancy information");
+params.put("subject","Update tenancy information");
 response = invokeurl
 [
 	url :createAPI
@@ -76,6 +59,6 @@ response = invokeurl
 	parameters:params.toString()
 	headers:{"Content-Type":"application/json","featureFlags":"lookUp"}
 	detailed:true
-	connection:"connection_name"
+	connection:"desk_oauth"
 ];
 info response;
