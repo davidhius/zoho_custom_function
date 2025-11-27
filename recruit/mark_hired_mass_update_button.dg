@@ -1,0 +1,22 @@
+//parameters: applicationIds = application.id
+//sample input: 789504000016639614|||789504000016720325
+applicationList = applicationIds.toList("|||");
+ParamMap = Map();
+ParamMap.put("ids",applicationList);
+ParamMap.put("Application_Status","Hired");
+ParamMap.put("comments","Hired Offer Accepted Joining Date");
+ListData = List();
+ListData.add(ParamMap);
+DataMap = Map();
+DataMap.put("data",ListData);
+info DataMap;
+resp = invokeurl
+[
+	url :"https://recruit.zoho.com/recruit/v2/Applications/status"
+	type :PUT
+	parameters:DataMap.toText()
+	headers:{"Content-Type":"application/json"}
+	connection:"soscaccountprod"
+];
+info resp;
+return "Successfully. applicationIds ::: " + applicationIds + resp.toText();
