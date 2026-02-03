@@ -1,0 +1,337 @@
+//============================
+//==
+//== Publish Job on VietnamWorks
+//==
+//============================
+/** Zoho Field Name */
+try 
+{
+	fieldNameMappingVNWs = Map();
+	fieldNameMappingVNWs.put("postingTitle","Posting Title");
+	fieldNameMappingVNWs.put("isShowSalary","Show Salary? (VNW)");
+	fieldNameMappingVNWs.put("minSalaryVNWs","Min Salary (USD) (VNW)");
+	fieldNameMappingVNWs.put("maxSalaryVNWs","Max Salary (USD) (VNW)");
+	fieldNameMappingVNWs.put("jobIDVNWs","Job ID On VietnamWorks");
+	fieldNameMappingVNWs.put("jobLevelVNWs","Job Level (VNW)");
+	fieldNameMappingVNWs.put("workingLocationVNWs","Working Location (VNW)");
+	fieldNameMappingVNWs.put("companyNameVNWs","Company Name (VNW)");
+	fieldNameMappingVNWs.put("jobPostingServiceVNWs","Post Jobs VNW (Credit Package)");
+	fieldNameMappingVNWs.put("jobHighestDegreeVNWs","Minimum Education Level (VNW)");
+	/** Default job parameters vietnamworks */
+	job_level = 1;
+	company_industry = 49;
+	job_working_location1 = 103389;
+	response = zoho.recruit.getRecordById("JobOpenings",recId,"sys_zohorecruit");
+	created_by = response.get("Created By");
+	job_level_name = response.get(fieldNameMappingVNWs.get("jobLevelVNWs"));
+	working_location = response.get(fieldNameMappingVNWs.get("workingLocationVNWs"));
+	/** If exist job created on vietnamworks ====> return process */
+	if(!response.get(fieldNameMappingVNWs.get("jobIDVNWs")).isNull())
+	{
+		return "Job is already created on VietnamWorks";
+	}
+	/**  */
+	DataMap = Map();
+	ParamMap = Map();
+	// vietnamworks form data new job
+	vnwsJobFormDetail = invokeurl
+	[
+		url :"https://api.vietnamworks.com/api/rest/v4/jobs/new.json"
+		type :GET
+		headers:{"Content-Type":"application/json"}
+		connection:"prdvietnamworks"
+	];
+	//job posting service
+	jobPostingServiceNameVNWs = response.get(fieldNameMappingVNWs.get("jobPostingServiceVNWs"));
+	jobPostingServiceIDVNWs = "";
+	vnwsJobPostingServiceList = vnwsJobFormDetail.get("form_view").get("job").get("job_posting_service").get("values");
+	for each  jobPostingService in vnwsJobPostingServiceList
+	{
+		if(jobPostingService.get("label").startsWith(jobPostingServiceNameVNWs))
+		{
+			jobPostingServiceIDVNWs = jobPostingService.get("value");
+		}
+	}
+	if(jobPostingServiceIDVNWs == "")
+	{
+		return "Job Posting Service not found!";
+	}
+	// highest degree. default id is 11
+	jobHighestDegreeNameVNWs = response.get(fieldNameMappingVNWs.get("jobHighestDegreeVNWs"));
+	jobHighestDegreeIDVNWs = 11;
+	responseSetting = zoho.sheet.getRecords("s8arf22a00f0955074b6590796516aeade76f","DegreeMapping");
+	for each  data in responseSetting.get("records")
+	{
+		if(data.get("soscaccountprodName") == jobHighestDegreeNameVNWs)
+		{
+			jobHighestDegreeIDVNWs = data.get("VNWsID");
+		}
+	}
+	// job title
+	postingTitle = response.get(fieldNameMappingVNWs.get("postingTitle"));
+	// salary
+	isShowSalary = if(response.get(fieldNameMappingVNWs.get("isShowSalary")) == "Yes",1,0);
+	minimumSalary = if(!response.get(fieldNameMappingVNWs.get("minSalaryVNWs")).isNull(),response.get(fieldNameMappingVNWs.get("minSalaryVNWs")),0);
+	maximumSalary = if(!response.get(fieldNameMappingVNWs.get("maxSalaryVNWs")).isNull(),response.get(fieldNameMappingVNWs.get("maxSalaryVNWs")),1);
+	// job description
+	jobDescriptionRawHtml = response.get("Job Description");
+	jobDescStart = jobDescriptionRawHtml.indexOf("<span id=\"spandesc\">") + "<span id=\"spandesc\">".length();
+	jobDescEnd = jobDescriptionRawHtml.indexOf("<span id=\"spanreq\">");
+	jobDescription = jobDescriptionRawHtml.substring(jobDescStart,jobDescEnd);
+	jobDescription = jobDescription.replaceAll("\n","");
+	jobDescription = jobDescription.replaceAll("(?s)<br />","\n");
+	jobDescription = jobDescription.replaceAll("(?s)<li[^>]*>","- ");
+	jobDescription = jobDescription.replaceAll("(?s)</li>","htmltaglibreak");
+	jobDescription = jobDescription.replaceAll("(?s)<[^>]*>","");
+	jobDescription = jobDescription.replaceAll("\nhtmltaglibreak","\n");
+	jobDescription = jobDescription.replaceAll("htmltaglibreak","\n");
+	requirementsStart = jobDescriptionRawHtml.indexOf("<span id=\"spanreq\">") + "<span id=\"spanreq\">".length();
+	requirementsEnd = jobDescriptionRawHtml.indexOf("<span id=\"spanben\">");
+	jobRequirements = jobDescriptionRawHtml.substring(requirementsStart,requirementsEnd);
+	jobRequirements = jobRequirements.replaceAll("\n","");
+	jobRequirements = jobRequirements.replaceAll("(?s)<br />","\n");
+	jobRequirements = jobRequirements.replaceAll("(?s)<li[^>]*>","- ");
+	jobRequirements = jobRequirements.replaceAll("(?s)</li>","htmltaglibreak");
+	jobRequirements = jobRequirements.replaceAll("(?s)<[^>]*>","");
+	jobRequirements = jobRequirements.replaceAll("\nhtmltaglibreak","\n");
+	jobRequirements = jobRequirements.replaceAll("htmltaglibreak","\n");
+	jobRequirements = jobRequirements.replaceFirst("^Requirements","").trim();
+	//
+	ListLocation = List();
+	ListSkill = List();
+	company_benefit1 = Map();
+	for each  location in response.get("City")
+	{
+		dataLocation = invokeurl
+		[
+			url :"https://ms.vietnamworks.com/meta/v1.1/cities"
+			type :GET
+			connection:"prdvietnamworks"
+		];
+		for each  data in dataLocation.get("data")
+		{
+			if(data.get("attributes").get("nameVi") == location || data.get("attributes").get("nameEn") == location)
+			{
+				ListLocation.add(data.get("id").toString());
+			}
+		}
+	}
+	// job level
+	dataTpeWoking = invokeurl
+	[
+		url :"https://ms.vietnamworks.com/meta/v1.1/job-levels"
+		type :GET
+		connection:"prdvietnamworks"
+	];
+	for each  data in dataTpeWoking.get("data")
+	{
+		if(data.get("attributes").get("nameEn").trim() == job_level_name)
+		{
+			job_level = data.get("id");
+		}
+	}
+	// skill
+	listCheckSkill = List();
+	if(!response.get("Required Skills").isNull())
+	{
+		i = 1;
+		for each  skill in response.get("Required Skills")
+		{
+			dataSkill = invokeurl
+			[
+				url :"https://api.vietnamworks.com/skill-tags/skill/suggestion?query=" + skill
+				type :GET
+				headers:{"Content-Type":"application/json"}
+				connection:"prdvietnamworks"
+			];
+			if(dataSkill.get("data").size() > 0 && !listCheckSkill.contains(dataSkill.get("data").get(0).get("id")) && i < 6)
+			{
+				ParamMap.put("skill_tag" + i,dataSkill.get("data").get(0).get("id"));
+				listCheckSkill.add(dataSkill.get("data").get(0).get("id"));
+				i = i + 1;
+			}
+		}
+	}
+	company_name = response.get(fieldNameMappingVNWs.get("companyNameVNWs"));
+	//company_address = "10th Floor, Golden Tower, 6 Nguyen Thi Minh Khai, District 1, HCM City.";
+	responseCompanyProfile = zoho.sheet.getRecords("s8arf22a00f0955074b6590796516aeade76f","Company profile");
+	for each  data in responseCompanyProfile.get("records")
+	{
+		if(data.get("Company Name") == "Vinfast India" && company_name == "Vinfast India")
+		{
+			company_profile = data.get("Company Profile");
+		}
+		else if(data.get("Company Name") == "Vinfast Global" && company_name == "Vinfast Global")
+		{
+			company_profile = data.get("Company Profile");
+		}
+		else if(data.get("Company Name") == "Others" && company_name != "Vinfast India" && company_name != "Vinfast Global")
+		{
+			company_profile = data.get("Company Profile");
+		}
+	}
+	//company_profile = "VietnamWorks is Vietnam's #1 online service for professionals looking for jobs and employers looking for talent.";
+	company_benefit1 = {"benefit_id":1,"benefit_desc":"Competitive income (including 13th-month salary, performance bonuses, and other rewards as regulated by Vingroup)."};
+	company_benefit2 = {"benefit_id":2,"benefit_desc":"High-quality health insurance."};
+	company_benefit3 = {"benefit_id":15,"benefit_desc":"Working in a safe, modern, civilized, and professional environment with numerous opportunities for personal development, and even take the lead."};
+	contact_name = created_by;
+	responseSetting = zoho.sheet.getRecords("s8arf22a00f0955074b6590796516aeade76f","Setting VNW");
+	for each  data in responseSetting.get("records")
+	{
+		if(data.get("Name") != "Language")
+		{
+			ParamMap.put(data.get("Name"),data.get("Value"));
+		}
+	}
+	//is_show_contact = 1;
+	responseEmail = invokeurl
+	[
+		url :"https://recruit.zoho.com/recruit/v2/users?type=AllUsers"
+		type :GET
+		connection:"sys_zohorecruit"
+	];
+	info created_by;
+	for each  data in responseEmail.get("users")
+	{
+		if(data.get("full_name") == created_by)
+		{
+			email_for_application = data.get("email").toString();
+		}
+	}
+	//preferred_language = 2;
+	type_working_id = 6;
+	dataTpeWoking = invokeurl
+	[
+		url :"https://ms.vietnamworks.com/meta/v1.1/type-workings"
+		type :GET
+		connection:"prdvietnamworks"
+	];
+	for each  data in dataTpeWoking.get("data")
+	{
+		if(data.get("attributes").get("nameEn") == response.get("Job Type"))
+		{
+			type_working_id = data.get("id");
+		}
+	}
+	is_show_number_of_recruits = 0;
+	number_of_recruits = response.get("Number of Positions");
+	if(response.get("Show Number of Positions?") == "Yes")
+	{
+		is_show_number_of_recruits = 1;
+	}
+	// 	dataWorkingLocation = invokeurl
+	// 	[
+	// 		url :"https://api.vietnamworks.com/api/rest/v1/company/locations"
+	// 		type :GET
+	// 		headers:{"Content-Type":"application/json"}
+	// 		connection:"prdvietnamworks"
+	// 	];
+	// 	for each  data in dataWorkingLocation.get("data")
+	// 	{
+	// 		if(data.get("address").trim() == working_location)
+	// 		{
+	// 			job_working_location1 = data.get("id");
+	// 		}
+	// 	}
+	if(!isNull(working_location))
+	{
+		job_working_location1 = working_location.toList("-VNWsID:").get(1).trim();
+	}
+	//is_anonymous = 1;
+	//is_show_logo = 1;
+	dataCompanyIndustry = invokeurl
+	[
+		url :"https://ms.vietnamworks.com/meta/v1.2/company-industries"
+		type :GET
+		connection:"prdvietnamworks"
+	];
+	for each  data in dataCompanyIndustry.get("data")
+	{
+		if(data.get("attributes").get("nameEn") == response.get("Industry"))
+		{
+			company_industry = data.get("id");
+		}
+	}
+	job_function = 30;
+	dataJobFunction = invokeurl
+	[
+		url :"https://ms.vietnamworks.com/meta/v1.2/job-functions"
+		type :GET
+		connection:"prdvietnamworks"
+	];
+	for each  data in dataJobFunction.get("data")
+	{
+		if(data.get("attributes").get("nameEn") == response.get("Job Function"))
+		{
+			job_function = data.get("id");
+		}
+	}
+	for each  data in dataJobFunction.get("included")
+	{
+		if(data.get("attributes").get("nameEn") == response.get("Job Function"))
+		{
+			job_function = data.get("id");
+		}
+	}
+	years_of_experience = response.get("Work Experience");
+	// -------
+	ParamMap.put("job_title",postingTitle);
+	ParamMap.put("job_description",jobDescription.toString());
+	ParamMap.put("job_requirements",jobRequirements.toString());
+	ParamMap.put("job_level",job_level);
+	ParamMap.put("job_locations",ListLocation);
+	ParamMap.put("minimum_salary",minimumSalary);
+	ParamMap.put("maximum_salary",maximumSalary);
+	ParamMap.put("is_show_salary",isShowSalary);
+	ParamMap.put("company_name",company_name);
+	ParamMap.put("company_profile",company_profile);
+	ParamMap.put("company_benefit1",company_benefit1);
+	ParamMap.put("company_benefit2",company_benefit2);
+	ParamMap.put("company_benefit3",company_benefit3);
+	ParamMap.put("contact_name",contact_name);
+	ParamMap.put("email_for_application",email_for_application);
+	ParamMap.put("job_posting_service",jobPostingServiceIDVNWs);
+	ParamMap.put("type_working_id",type_working_id);
+	ParamMap.put("job_working_location1",job_working_location1);
+	ParamMap.put("company_industry",company_industry);
+	ParamMap.put("job_function",job_function.toLong());
+	ParamMap.put("years_of_experience",years_of_experience.toLong());
+	ParamMap.put("is_show_number_of_recruits",is_show_number_of_recruits);
+	ParamMap.put("number_of_recruits",number_of_recruits);
+	ParamMap.put("highest_degree_id",jobHighestDegreeIDVNWs);
+	DataMap.put("job",ParamMap);
+	info "DataMap ::: " + DataMap;
+	response = invokeurl
+	[
+		url :"https://api.vietnamworks.com/api/rest/v4/jobs.json"
+		type :POST
+		parameters:DataMap.tostring()
+		headers:{"Content-Type":"application/json"}
+		connection:"prdvietnamworks"
+	];
+	info "response ::: " + response;
+	if(response.get("status").get("code") == 200)
+	{
+		JobId = response.get("data").get("jobId").toString();
+		params = Map();
+		params.put("VietnamWorksSchedules JobOpeningID",recId);
+		params.put("Recruit JobOpening",postingTitle);
+		params.put("Recruit JobOpening ID",recId);
+		params.put("Status","Active");
+		params.put("VNWs Job ID",JobId);
+		params.put("Next Schedule Execution Time",zoho.currenttime.addMinutes(60));
+		respAddSchedule = zoho.recruit.addRecord("CustomModule1",params,1,true,"sys_zohorecruit");
+		response = zoho.recruit.updateRecord("JobOpenings",recId,{"VietnamWorks Schedule Info":respAddSchedule.toText()},true,"sys_zohorecruit");
+		return "Created Job on VietnamWorks : " + JobId;
+	}
+	else
+	{
+		return "Failed :  " + response.toText();
+	}
+	return "Success :::  " + recId;
+}
+catch (e)
+{
+	return "Error :::  " + e;
+}
+return "Success :::  " + recId;
